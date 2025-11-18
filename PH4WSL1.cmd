@@ -28,18 +28,25 @@ SET IMG=Debian.tar.gz
 IF EXIST "%TEMP%\%IMG%" DEL "%TEMP%\%IMG%"
 ECHO Downloading minimal Debian image . . .
 :DLIMG
+ECHO. & ECHO About to download Online File from https://salsa.debian.org/debian/WSL... & ECHO.
+SET /P AREYOUSURE=Are you sure (Y/[N])?
+IF /I "%AREYOUSURE%" NEQ "Y" GOTO ENDSCRIPT
 POWERSHELL.EXE -Command "Start-BitsTransfer -Source https://salsa.debian.org/debian/WSL/-/raw/7723a557b040b85ab1c38d6dd84b2fcb2474d715/x64/install.tar.gz?inline=false -Destination '%TEMP%\%IMG%'" >NUL 2>&1
 IF NOT EXIST "%TEMP%\%IMG%" GOTO DLIMG
 %PRGF:~0,2% & MKDIR "%PRGF%" & CD "%PRGF%" & MKDIR "logs" 
 IF EXIST PH4WSL1.zip DEL PH4WSL1.zip
 ECHO Downloading prerequisite packages . . .
 :DLPRQ
+ECHO. & ECHO About to download Online File : https://github.com/DesktopECHO/Pi-Hole-for-WSL1/archive/refs/heads/master.zip & ECHO.
+SET /P AREYOUSURE=Are you sure (Y/[N])?
+IF /I "%AREYOUSURE%" NEQ "Y" GOTO ENDSCRIPT
 POWERSHELL.EXE -Command "$ProgressPreference = 'SilentlyContinue' ; Invoke-WebRequest -Uri 'https://github.com/DesktopECHO/Pi-Hole-for-WSL1/archive/refs/heads/master.zip' -OutFile 'PH4WSL1.zip'" > NUL 2>&1
 IF NOT EXIST PH4WSL1.zip GOTO DLPRQ
 POWERSHELL.EXE -Command "Expand-Archive -Force 'PH4WSL1.zip' ; Remove-Item 'PH4WSL1.zip'
 POWERSHELL.EXE -Command "Expand-Archive -Force -Path '.\PH4WSL1\Pi-Hole-for-WSL1-master\LxRunOffline-v3.5.0-33-gbdc6d7d-msvc.zip' -DestinationPath '%TEMP%' ; Copy-Item '%TEMP%\LxRunOffline-v3.5.0-33-gbdc6d7d-msvc\LxRunOffline.exe' '%PRGF%'"
 FOR /F "usebackq delims=" %%v IN (`PowerShell -Command "whoami"`) DO SET "WAI=%%v"
 ICACLS "%PRGF%" /grant "%WAI%:(CI)(OI)F" > NUL
+@REM Creating Pi-hole uninstall file
 ECHO @ECHO OFF ^& CLS ^& NET SESSION ^>NUL 2^>^&1                                  > "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO IF ^%%ERRORLEVEL^%% == 0 ^(ECHO Pi-hole Uninstaller: Close window to abort or>> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO )ELSE ^(ECHO Please run uninstaller with admin rights! ^&^& PAUSE ^&^& EXIT) >> "%PRGF%\Pi-hole Uninstall.cmd"
@@ -53,16 +60,16 @@ ECHO "%TEMP%\LxRunOffline.exe" ur -n Pi-hole ^> NUL 2^>^&1 ^& CD ..             
 ECHO ECHO. ^& ECHO Uninstall Complete!                                            >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO START /MIN "Uninstall" "CMD.EXE" /C RD /S /Q "%PRGF%"                        >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO PAUSE                                                                        >> "%PRGF%\Pi-hole Uninstall.cmd"
-ECHO .                                                                            >> "%PRGF%\Pi-hole Uninstall.cmd"
-ECHO|SET /p="Installing Debian . . ."
+ECHO.                                                                             >> "%PRGF%\Pi-hole Uninstall.cmd"
+SET /p="Installing Debian . . ."
 START /WAIT /MIN "Installing Debian, one moment please..." "LxRunOffline.exe" "i" "-n" "Pi-hole" "-f" "%TEMP%\%IMG%" "-d" "."
-ECHO|SET /p="-> Compacting install . . ." 
+SET /p="-> Compacting install . . ." 
 SET GO="%PRGF%\LxRunOffline.exe" r -n Pi-hole -c 
 NetSH AdvFirewall Firewall add rule name="Pi-hole DNS Server" dir=in action=allow program="%PRGF%\rootfs\usr\bin\pihole-ftl" enable=yes > NUL
 NetSH AdvFirewall Firewall add rule name="Pi-hole SSH"        dir=in action=allow program="%PRGF%\rootfs\usr\sbin\sshd"      enable=yes > NUL
 %GO% "dpkg -r --force-all libdevmapper1.02.1 libcryptsetup12 libargon2-1 dmsetup libapparmor1 libsystemd-shared systemd systemd-sysv 2> /dev/null" > NUL
 %GO% "rm -rf /etc/apt/apt.conf.d/20snapd.conf /etc/rc2.d/S01whoopsie /etc/init.d/console-setup.sh /etc/init.d/udev ; echo 'echo N 2' > /usr/sbin/runlevel ; chmod +x /usr/sbin/runlevel ; dpkg-divert --local --rename --add /sbin/initctl ; ln -fs /bin/true /sbin/initctl ; echo 'exit 0' > /usr/sbin/policy-rc.d ; chmod +x /usr/sbin/policy-rc.d" > NUL
-ECHO.&ECHO Please wait a few minutes for package installer . . .
+ECHO. & ECHO Please wait a few minutes for package installer . . .
 %GO% "RUNLEVEL=0 dpkg -i --force-all ./PH4WSL1/Pi-Hole-for-WSL1-master/deb/*.deb 2> /dev/null" > "%PRGF%\logs\Pi-hole package install.log" & ECHO.
 %GO% "cp ./PH4WSL1/Pi-Hole-for-WSL1-master/ss /.ss ; chmod +x /.ss ; cp /.ss /bin/ss ; cp ./PH4WSL1/Pi-Hole-for-WSL1-master/pi-hole.conf /etc/unbound/unbound.conf.d/pi-hole.conf"
 %GO% "mkdir /etc/pihole ; touch /etc/network/interfaces ; echo '13.107.4.52 www.msftconnecttest.com' > /etc/pihole/custom.list ; echo '131.107.255.255 dns.msftncsi.com' >> /etc/pihole/custom.list"
@@ -76,11 +83,14 @@ ECHO Update setupVars.conf to use IP address %IPC% on interface %IPF% . . .
 %GO% "echo QUERY_LOGGING=true          >> /etc/pihole/setupVars.conf"
 %GO% "echo DNSMASQ_LISTENING=all       >> /etc/pihole/setupVars.conf"
 %GO% "echo WEBPASSWORD=                >> /etc/pihole/setupVars.conf"
-ECHO. & ECHO.Launching Pi-hole v6 install... 
-REM -- Install Pi-hole 
+ECHO. & ECHO Launching Pi-hole v6 install... 
+@REM -- Install Pi-hole
+ECHO. & ECHO About to INSTALL Online File from https://install.Pi-hole.net & ECHO.
+SET /P AREYOUSURE=Are you sure (Y/[N])?
+IF /I "%AREYOUSURE%" NEQ "Y" GOTO ENDSCRIPT
 START /MIN "Gravity Tempfile Monitor" %GO% "while [ ! -f /tmp/done ] ; do sed -i '/gravityTEMPfile=/c\gravityTEMPfile=\/dev\/shm/gravity.db_temp' /opt/pihole/gravity.sh ; clear ; sleep .2 ; done"
 %GO% "echo 'nameserver 9.9.9.9' > /etc/resolv.conf ; curl -L https://install.Pi-hole.net | bash /dev/stdin --unattended ; update-rc.d pihole-FTL defaults"
-REM -- FixUp: Debug log parsing on WSL1 
+@REM -- FixUp: Debug log parsing on WSL1 
 %GO% "sed -i 's* -f 3* -f 4*g' /opt/pihole/piholeDebug.sh"
 %GO% "sed -i 's*-I \"${PIHOLE_INTERFACE}\"* *g' /opt/pihole/piholeDebug.sh"
 %GO% "hn=`hostname` ; echo cname=$hn.gravitysync,$hn > /etc/dnsmasq.d/05-pihole-custom-cname.conf"
@@ -130,5 +140,5 @@ ECHO. & CD .. & PAUSE
 START http://%COMPUTERNAME%:%PORT%/admin
 %GO% "echo Install complete!  Devices on your network reach this Pi-hole via IP $(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; echo ' '"
 :ERRORCOUNT
-SET /p="%ERRORLEVEL% Errors encountered. Hit enter to close . . ."
+ECHO. & SET /p="%ERRORLEVEL% Errors encountered. Hit enter to close . . ."
 :ENDSCRIPT
