@@ -1,18 +1,28 @@
+@REM Change the character encoding of the terminal shown
 @CHCP 65001 > NUL
+@REM Ehco OFF: Suppress command outputs; NET SESSION: Check if the current session has administrative privileges 
 @ECHO OFF & NET SESSION >NUL 2>&1 
-IF %ERRORLEVEL% == 0 (ECHO Administrator check passed...) ELSE (ECHO You need to run the Pi-hole installer with administrative rights.  Is User Account Control enabled? && pause && goto ENDSCRIPT)
-POWERSHELL -Command "$WSL = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' ; if ($WSL.State -eq 'Disabled') {Enable-WindowsOptionalFeature -FeatureName $WSL.FeatureName -Online}"
+IF %ERRORLEVEL% == 0 ( ECHO Administrator check passed...) ELSE ( ECHO You need to run the Pi-hole installer with administrative rights.  Is User Account Control enabled? && PAUSE && GOTO ERRORCOUNT )
+@REM Adding note to user for enabling WSL for Windows
+ECHO Enabling WSL ^(Windows Subsystem for Linux^) . . .
+POWERSHELL -Command "$WSL = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' ; if ($WSL.State -eq 'Disabled') {Enable-WindowsOptionalFeature -FeatureName $WSL.FeatureName -Online} ; foobar"
+IF %ERRORLEVEL% NEQ 0 ( ECHO Error with Windows Subsystem for Linux. & GOTO ERRORCOUNT )
 SET PORT=60080
 :INPUTS
-CLS
+@REM I dont want to clear the screen
+@REM CLS
 ECHO.-------------------------------- & ECHO. Pi-hole for Windows v.20250312 & ECHO.-------------------------------- & ECHO.
-SET PRGP=%PROGRAMFILES%&SET /P "PRGP=Set Pi-hole install location, or hit enter for default [%PROGRAMFILES%] -> "
+@REM Adding Pi-hole folder name to display when showing user default install location (PHDFN=Pi-Hole Default Folder Name)
+SET PHDFN=Pi-hole
+SET PRGP=%PROGRAMFILES%&SET /P "PRGP=Set Pi-hole install location, or hit enter for default [%PROGRAMFILES%\%PHDFN%] -> "
 IF %PRGP:~-1%==\ SET PRGP=%PRGP:~0,-1%
-SET PRGF=%PRGP%\Pi-hole
-IF EXIST "%PRGF%" (ECHO. & ECHO Pi-hole folder already exists, uninstall Pi-hole first. & PAUSE & GOTO INPUTS)
+SET PRGF=%PRGP%\%PHDFN%
+@REM Changed to GOTO ENDSCRIPT instead of looping
+IF EXIST "%PRGF%" ( ECHO. & ECHO Pi-hole folder already exists, uninstall Pi-hole first. & PAUSE & GOTO ENDSCRIPT )
 WSL.EXE -d Pi-hole -e . > "%TEMP%\InstCheck.tmp"
-FOR /f %%i in ("%TEMP%\InstCheck.tmp") do set CHKIN=%%~zi 
-IF %CHKIN% == 0 (ECHO. & ECHO Existing Pi-hole installation detected, uninstall Pi-hole first. & PAUSE & GOTO INPUTS)
+FOR /f %%i in ("%TEMP%\InstCheck.tmp") do set CHKIN=%%~zi
+@REM Changed to GOTO ENDSCRIPT instead of looping
+IF %CHKIN% == 0 ( ECHO. & ECHO Existing Pi-hole installation detected, uninstall Pi-hole first. & PAUSE & GOTO ENDSCRIPT )
 ECHO.
 SET IMG=Debian.tar.gz
 IF EXIST "%TEMP%\%IMG%" DEL "%TEMP%\%IMG%"
@@ -28,11 +38,11 @@ POWERSHELL.EXE -Command "$ProgressPreference = 'SilentlyContinue' ; Invoke-WebRe
 IF NOT EXIST PH4WSL1.zip GOTO DLPRQ
 POWERSHELL.EXE -Command "Expand-Archive -Force 'PH4WSL1.zip' ; Remove-Item 'PH4WSL1.zip'
 POWERSHELL.EXE -Command "Expand-Archive -Force -Path '.\PH4WSL1\Pi-Hole-for-WSL1-master\LxRunOffline-v3.5.0-33-gbdc6d7d-msvc.zip' -DestinationPath '%TEMP%' ; Copy-Item '%TEMP%\LxRunOffline-v3.5.0-33-gbdc6d7d-msvc\LxRunOffline.exe' '%PRGF%'"
-FOR /F "usebackq delims=" %%v IN (`PowerShell -Command "whoami"`) DO set "WAI=%%v"
+FOR /F "usebackq delims=" %%v IN (`PowerShell -Command "whoami"`) DO SET "WAI=%%v"
 ICACLS "%PRGF%" /grant "%WAI%:(CI)(OI)F" > NUL
 ECHO @ECHO OFF ^& CLS ^& NET SESSION ^>NUL 2^>^&1                                  > "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO IF ^%%ERRORLEVEL^%% == 0 ^(ECHO Pi-hole Uninstaller: Close window to abort or>> "%PRGF%\Pi-hole Uninstall.cmd"
-ECHO )ELSE ^(ECHO Please run uninstaller with admin rights! ^&^& pause ^&^& EXIT) >> "%PRGF%\Pi-hole Uninstall.cmd"
+ECHO )ELSE ^(ECHO Please run uninstaller with admin rights! ^&^& PAUSE ^&^& EXIT) >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO PAUSE ^& ECHO. ^& ECHO Uninstalling Pi-hole . . .                            >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO COPY /Y "%PRGF%\LxRunOffline.exe" "%TEMP%" ^> NUL 2^>^&1                     >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO SCHTASKS /Delete /TN:"Pi-hole for Windows" /F ^> NUL 2^>^&1                  >> "%PRGF%\Pi-hole Uninstall.cmd"
@@ -42,7 +52,9 @@ ECHO %PRGF:~0,2% ^& CD "%PRGF%" ^& WSLCONFIG /T Pi-hole ^> NUL 2^>^&1           
 ECHO "%TEMP%\LxRunOffline.exe" ur -n Pi-hole ^> NUL 2^>^&1 ^& CD ..               >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO ECHO. ^& ECHO Uninstall Complete!                                            >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO START /MIN "Uninstall" "CMD.EXE" /C RD /S /Q "%PRGF%"                        >> "%PRGF%\Pi-hole Uninstall.cmd"
-ECHO|SET /p="Installing Debian "
+ECHO PAUSE                                                                        >> "%PRGF%\Pi-hole Uninstall.cmd"
+ECHO .                                                                            >> "%PRGF%\Pi-hole Uninstall.cmd"
+ECHO|SET /p="Installing Debian . . ."
 START /WAIT /MIN "Installing Debian, one moment please..." "LxRunOffline.exe" "i" "-n" "Pi-hole" "-f" "%TEMP%\%IMG%" "-d" "."
 ECHO|SET /p="-> Compacting install . . ." 
 SET GO="%PRGF%\LxRunOffline.exe" r -n Pi-hole -c 
@@ -117,4 +129,6 @@ ECHO.         "Start the task only if the computer is on AC power"
 ECHO. & CD .. & PAUSE
 START http://%COMPUTERNAME%:%PORT%/admin
 %GO% "echo Install complete!  Devices on your network reach this Pi-hole via IP $(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; echo ' '"
+:ERRORCOUNT
+SET /p="%ERRORLEVEL% Errors encountered. Hit enter to close . . ."
 :ENDSCRIPT
