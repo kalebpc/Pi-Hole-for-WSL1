@@ -5,7 +5,7 @@
 IF %ERRORLEVEL% == 0 ( ECHO Administrator check passed...) ELSE ( ECHO You need to run the Pi-hole installer with administrative rights.  Is User Account Control enabled? && PAUSE && GOTO ERRORCOUNT )
 @REM Adding note to user for enabling WSL for Windows
 ECHO Enabling WSL ^(Windows Subsystem for Linux^) . . .
-POWERSHELL -Command "$WSL = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' ; if ($WSL.State -eq 'Disabled') {Enable-WindowsOptionalFeature -FeatureName $WSL.FeatureName -Online} ; foobar"
+POWERSHELL -Command "$WSL = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' ; if ($WSL.State -eq 'Disabled') {Enable-WindowsOptionalFeature -FeatureName $WSL.FeatureName -Online} ; wsl.exe --install --no-distribution"
 IF %ERRORLEVEL% NEQ 0 ( ECHO Error with Windows Subsystem for Linux. & GOTO ERRORCOUNT )
 SET PORT=60080
 :INPUTS
@@ -61,9 +61,9 @@ ECHO ECHO. ^& ECHO Uninstall Complete!                                          
 ECHO START /MIN "Uninstall" "CMD.EXE" /C RD /S /Q "%PRGF%"                        >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO PAUSE                                                                        >> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO.                                                                             >> "%PRGF%\Pi-hole Uninstall.cmd"
-SET /p="Installing Debian . . ."
+ECHO Installing Debian . . .
 START /WAIT /MIN "Installing Debian, one moment please..." "LxRunOffline.exe" "i" "-n" "Pi-hole" "-f" "%TEMP%\%IMG%" "-d" "."
-SET /p="-> Compacting install . . ." 
+ECHO Compacting install . . . 
 SET GO="%PRGF%\LxRunOffline.exe" r -n Pi-hole -c 
 NetSH AdvFirewall Firewall add rule name="Pi-hole DNS Server" dir=in action=allow program="%PRGF%\rootfs\usr\bin\pihole-ftl" enable=yes > NUL
 NetSH AdvFirewall Firewall add rule name="Pi-hole SSH"        dir=in action=allow program="%PRGF%\rootfs\usr\sbin\sshd"      enable=yes > NUL
@@ -75,7 +75,7 @@ ECHO. & ECHO Please wait a few minutes for package installer . . .
 %GO% "mkdir /etc/pihole ; touch /etc/network/interfaces ; echo '13.107.4.52 www.msftconnecttest.com' > /etc/pihole/custom.list ; echo '131.107.255.255 dns.msftncsi.com' >> /etc/pihole/custom.list"
 %GO% "IPC=$(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; IPC=$(ip -o addr show | grep $IPC) ; echo $IPC | sed 's/.*inet //g' | sed 's/\s.*$//'" > logs\IP.txt && set /p IPC=<logs\IP.txt
 %GO% "IPF=$(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; IPF=$(ip -o addr show | grep $IPF) ; echo $IPF | sed 's/.*: //g'    | sed 's/\s.*$//'" > logs\Interface.txt && set /p IPF=<logs\Interface.txt
-ECHO Update setupVars.conf to use IP address %IPC% on interface %IPF% . . .
+ECHO Updating setupVars.conf to use IP address %IPC% on interface %IPF% . . .
 %GO% "echo PIHOLE_DNS_1=127.0.0.1#5335 >  /etc/pihole/setupVars.conf"
 %GO% "echo IPV4_ADDRESS=%IPC%          >> /etc/pihole/setupVars.conf"
 %GO% "echo PIHOLE_INTERFACE=%IPF%      >> /etc/pihole/setupVars.conf"
@@ -118,7 +118,7 @@ POWERSHELL.EXE -Command "(Get-Content -path '%PRGF%\Pi-hole Repair.cmd' -Raw ) -
 ECHO @%GO% "sed -i 's|gravityTEMPfile=\"${GRAVITYDB}_temp\"|gravityTEMPfile=\"/dev/shm/gravity.db_temp\"|' /opt/pihole/gravity.sh"       > "%PRGF%\Pi-hole Gravity Update.cmd"  
 ECHO @%GO% "echo 'nameserver 9.9.9.9' > /etc/resolv.conf ; pihole updateGravity ; echo ; read -p 'Hit [Enter] to close this window...'" >> "%PRGF%\Pi-hole Gravity Update.cmd" 
 START /WAIT /MIN "Pi-hole Launcher" "%PRGF%\Pi-hole Launcher.cmd"  
-(ECHO.Input Specifications: & ECHO. && ECHO. Location: %PRGF% && ECHO.Interface: %IPF% && ECHO.  Address: %IPC% && ECHO.     Port: %PORT% && ECHO.     Temp: %TEMP% && ECHO.) >  "%PRGF%\logs\Pi-hole install settings.log"
+( ECHO.Input Specifications: & ECHO. && ECHO. Location: %PRGF% && ECHO.Interface: %IPF% && ECHO.  Address: %IPC% && ECHO.     Port: %PORT% && ECHO.     Temp: %TEMP% && ECHO. ) >  "%PRGF%\logs\Pi-hole install settings.log"
 DIR "%PRGF%" >> "%PRGF%\logs\Pi-hole install settings.log"
 %GO% "sed -i 's/  useWAL = true/  useWAL = false/g' /etc/pihole/pihole.toml ; sed -i 's/  port = \"8.*/  port = \"60080,[::]:60080,60443s,[::]:60443s\"/g'  /etc/pihole/pihole.toml"
 %GO% "sed -i '/\[ntp.ipv4\]/,/^\[/ s/active = true/active = false/' /etc/pihole/pihole.toml ; sed -i '/\[ntp.ipv6\]/,/^\[/ s/active = true/active = false/' /etc/pihole/pihole.toml ; sed -i '/\[ntp.rtc\]/,/^\[/ s/set = true/set = false/' /etc/pihole/pihole.toml ; sed -i '/\[ntp.rtc\]/,/^\[/ s/utc = true/utc = false/' /etc/pihole/pihole.toml ; sed -i '/\[ntp.sync.rtc\]/,/^\[/ s/set = true/set = false/' /etc/pihole/pihole.toml ; touch /tmp/done"
