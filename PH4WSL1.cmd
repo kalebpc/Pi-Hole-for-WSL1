@@ -1,27 +1,27 @@
-@REM Change the character encoding of the terminal shown
+@REM -- Change the character encoding of the terminal shown
 @CHCP 65001 > NUL
-@REM Ehco OFF: Suppress command outputs; NET SESSION: Check if the current session has administrative privileges 
+@REM -- Ehco OFF: Suppress command outputs; NET SESSION: Check if the current session has administrative privileges 
 @ECHO OFF & NET SESSION >NUL 2>&1 
 IF %ERRORLEVEL% == 0 ( ECHO Administrator check passed...) ELSE ( ECHO You need to run the Pi-hole installer with administrative rights.  Is User Account Control enabled? && PAUSE && GOTO ERRORCOUNT )
-@REM Adding note to user for enabling WSL for Windows
+@REM -- Adding note to user for enabling WSL for Windows
 ECHO Enabling WSL ^(Windows Subsystem for Linux^) . . .
-POWERSHELL -Command "$WSL = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' ; if ($WSL.State -eq 'Disabled') {Enable-WindowsOptionalFeature -FeatureName $WSL.FeatureName -Online} ; wsl.exe --install --no-distribution"
+POWERSHELL.EXE -Command "$WSL = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' ; if ($WSL.State -eq 'Disabled') {Enable-WindowsOptionalFeature -FeatureName $WSL.FeatureName -Online} ; wsl.exe --install --no-distribution"
 IF %ERRORLEVEL% NEQ 0 ( ECHO Error with Windows Subsystem for Linux. & GOTO ERRORCOUNT )
 SET PORT=60080
 :INPUTS
-@REM I dont want to clear the screen
+@REM -- I dont want to clear the screen
 @REM CLS
 ECHO.-------------------------------- & ECHO. Pi-hole for Windows v.20250312 & ECHO.-------------------------------- & ECHO.
-@REM Adding Pi-hole folder name to display when showing user default install location (PHDFN=Pi-Hole Default Folder Name)
+@REM -- Adding Pi-hole folder name to display when showing user default install location (PHDFN=Pi-Hole Default Folder Name)
 SET PHDFN=Pi-hole
 SET PRGP=%PROGRAMFILES%&SET /P "PRGP=Set Pi-hole install location, or hit enter for default [%PROGRAMFILES%\%PHDFN%] -> "
 IF %PRGP:~-1%==\ SET PRGP=%PRGP:~0,-1%
 SET PRGF=%PRGP%\%PHDFN%
-@REM Changed to GOTO ENDSCRIPT instead of looping
+@REM -- Changed to GOTO ENDSCRIPT instead of looping
 IF EXIST "%PRGF%" ( ECHO. & ECHO Pi-hole folder already exists, uninstall Pi-hole first. & PAUSE & GOTO ENDSCRIPT )
 WSL.EXE -d Pi-hole -e . > "%TEMP%\InstCheck.tmp"
 FOR /f %%i in ("%TEMP%\InstCheck.tmp") do set CHKIN=%%~zi
-@REM Changed to GOTO ENDSCRIPT instead of looping
+@REM -- Changed to GOTO ENDSCRIPT instead of looping
 IF %CHKIN% == 0 ( ECHO. & ECHO Existing Pi-hole installation detected, uninstall Pi-hole first. & PAUSE & GOTO ENDSCRIPT )
 ECHO.
 SET IMG=Debian.tar.gz
@@ -44,9 +44,8 @@ POWERSHELL.EXE -Command "$ProgressPreference = 'SilentlyContinue' ; Invoke-WebRe
 IF NOT EXIST PH4WSL1.zip GOTO DLPRQ
 POWERSHELL.EXE -Command "Expand-Archive -Force 'PH4WSL1.zip' ; Remove-Item 'PH4WSL1.zip'
 POWERSHELL.EXE -Command "Expand-Archive -Force -Path '.\PH4WSL1\Pi-Hole-for-WSL1-master\LxRunOffline-v3.5.0-33-gbdc6d7d-msvc.zip' -DestinationPath '%TEMP%' ; Copy-Item '%TEMP%\LxRunOffline-v3.5.0-33-gbdc6d7d-msvc\LxRunOffline.exe' '%PRGF%'"
-FOR /F "usebackq delims=" %%v IN (`PowerShell -Command "whoami"`) DO SET "WAI=%%v"
+FOR /F "usebackq delims=" %%v IN (`PowerShell.EXE -Command "whoami"`) DO SET "WAI=%%v"
 ICACLS "%PRGF%" /grant "%WAI%:(CI)(OI)F" > NUL
-@REM Creating Pi-hole uninstall file
 ECHO @ECHO OFF ^& CLS ^& NET SESSION ^>NUL 2^>^&1                                  > "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO IF ^%%ERRORLEVEL^%% == 0 ^(ECHO Pi-hole Uninstaller: Close window to abort or>> "%PRGF%\Pi-hole Uninstall.cmd"
 ECHO )ELSE ^(ECHO Please run uninstaller with admin rights! ^&^& PAUSE ^&^& EXIT) >> "%PRGF%\Pi-hole Uninstall.cmd"
@@ -73,8 +72,8 @@ ECHO. & ECHO Please wait a few minutes for package installer . . .
 %GO% "RUNLEVEL=0 dpkg -i --force-all ./PH4WSL1/Pi-Hole-for-WSL1-master/deb/*.deb 2> /dev/null" > "%PRGF%\logs\Pi-hole package install.log" & ECHO.
 %GO% "cp ./PH4WSL1/Pi-Hole-for-WSL1-master/ss /.ss ; chmod +x /.ss ; cp /.ss /bin/ss ; cp ./PH4WSL1/Pi-Hole-for-WSL1-master/pi-hole.conf /etc/unbound/unbound.conf.d/pi-hole.conf"
 %GO% "mkdir /etc/pihole ; touch /etc/network/interfaces ; echo '13.107.4.52 www.msftconnecttest.com' > /etc/pihole/custom.list ; echo '131.107.255.255 dns.msftncsi.com' >> /etc/pihole/custom.list"
-%GO% "IPC=$(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; IPC=$(ip -o addr show | grep $IPC) ; echo $IPC | sed 's/.*inet //g' | sed 's/\s.*$//'" > logs\IP.txt && set /p IPC=<logs\IP.txt
-%GO% "IPF=$(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; IPF=$(ip -o addr show | grep $IPF) ; echo $IPF | sed 's/.*: //g'    | sed 's/\s.*$//'" > logs\Interface.txt && set /p IPF=<logs\Interface.txt
+%GO% "IPC=$(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; IPC=$(ip -o addr show | grep $IPC) ; echo $IPC | sed 's/.*inet //g' | sed 's/\s.*$//'" > logs\IP.txt && SET /p IPC=<logs\IP.txt
+%GO% "IPF=$(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; IPF=$(ip -o addr show | grep $IPF) ; echo $IPF | sed 's/.*: //g'    | sed 's/\s.*$//'" > logs\Interface.txt && SET /p IPF=<logs\Interface.txt
 ECHO Updating setupVars.conf to use IP address %IPC% on interface %IPF% . . .
 %GO% "echo PIHOLE_DNS_1=127.0.0.1#5335 >  /etc/pihole/setupVars.conf"
 %GO% "echo IPV4_ADDRESS=%IPC%          >> /etc/pihole/setupVars.conf"
@@ -137,8 +136,17 @@ ECHO.
 ECHO.       - On the Conditions tab, un-check the option
 ECHO.         "Start the task only if the computer is on AC power"
 ECHO. & CD .. & PAUSE
-START http://%COMPUTERNAME%:%PORT%/admin
+@REM -- Desktop shortcut setup
+SET /P AREYOUSURE= "Do you want to create a shortcut on Desktop to Pi-hole Web Interface (Y/[N])?"
+IF /I "%AREYOUSURE%" NEQ "Y" ( ECHO. & ECHO Skipped adding Desktop Shortcut . . . & GOTO ERRORCOUNT )
+@REM -- Find desktop path
+SET DESKTPPATH=""
+FOR /f "delims=" %%v IN ('POWERSHELL.EXE -Command "Test-Path -Path '%USERPROFILE%\OneDrive\Desktop'"') DO SET "VAROUT=%%v"
+IF /I %VAROUT% == true ( SET DESKTPPATH=%USERPROFILE%\OneDrive\Desktop ) ELSE ( SET DESKTPPATH=%USERPROFILE%\Desktop)
+@REM -- %COMPUTERNAME% is not wanting to resolve after changing DNS in windows to $(ip route get 9.9.9.9 | grep -oP 'src \K\S+') SET shortcut TargetPath to localhost instead
+POWERSHELL.EXE -Command "$WsShell = New-Object -ComObject WScript.Shell ; $shortcut = $WsShell.CreateShortcut('%DESKTPPATH%\Pi-hole Interface.lnk') ; $shortcut.TargetPath = 'http://localhost:%PORT%/admin' ; $shortcut.IconLocation = '%SystemRoot%\System32\shell32.dll,166' ; $shortcut.Description = 'Pi-hole Interface' ; $shortcut.Save()"
 %GO% "echo Install complete!  Devices on your network reach this Pi-hole via IP $(ip route get 9.9.9.9 | grep -oP 'src \K\S+') ; echo ' '"
+START http://%COMPUTERNAME%:%PORT%/admin
 :ERRORCOUNT
 ECHO. & SET /p="%ERRORLEVEL% Errors encountered. Hit enter to close . . ."
 :ENDSCRIPT
